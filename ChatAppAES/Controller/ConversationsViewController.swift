@@ -9,12 +9,14 @@ import UIKit
 import FirebaseAuth
 import JGProgressHUD
 import FirebaseDatabase
+import NVActivityIndicatorView
 
 struct Conversation {
     let id: String
     let name: String
     let otherUserEmail: String
     let lastestMessage: LastestMessage
+    let key_path: String
 }
 
 struct LastestMessage {
@@ -27,6 +29,8 @@ class ConversationsViewController: UIViewController, UITableViewDelegate, UITabl
     static let shared = ConversationsViewController()
     @IBOutlet weak var segment: UISegmentedControl!
     @IBOutlet var tableViewChat: UITableView!
+    var loading: NVActivityIndicatorView!
+//    var alert: UIAlertController
     
     let cellTable = "ConversationTableViewCell"
     let spinner = JGProgressHUD(style: .dark)
@@ -43,12 +47,21 @@ class ConversationsViewController: UIViewController, UITableViewDelegate, UITabl
         self.title = "Chat"
         tableViewChat.register(UINib(nibName: cellTable, bundle: nil), forCellReuseIdentifier: cellTable)
         navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .compose, target: self, action: #selector(didTap))
-        if (UserDefaults.standard.value(forKey: ConversationsViewController.key_infor_path) != nil) {
-            let sharedSecretKeyValue = UserDefaults.standard.value(forKey: ConversationsViewController.key_infor_path) as! String
-            CreateShareKey.shared.initAES(sharedSecretKeyValue: sharedSecretKeyValue)
-        }
+        //        if (UserDefaults.standard.value(forKey: ConversationsViewController.key_infor_path) != nil) {
+        //            let sharedSecretKeyValue = UserDefaults.standard.value(forKey: ConversationsViewController.key_infor_path) as! String
+        //            CreateShareKey.shared.initAES(sharedSecretKeyValue: sharedSecretKeyValue)
+        //        }
         
         // Do any additional setup after loading the view.
+    }
+    
+    func createLoading() {
+        loading = NVActivityIndicatorView.init(frame: CGRect(x: 10, y: 5, width: 45, height: 45), type: .ballSpinFadeLoader, color: .blue, padding: 0)
+        loading.color = .darkGray
+        loading.startAnimating()
+        let alert = UIAlertController(title: nil, message: "Đang xử lý...", preferredStyle: .alert)
+        alert.view.addSubview(loading)
+        present(alert, animated: true, completion: nil)
     }
     
     private func startListeningForConversation() {
@@ -119,15 +132,15 @@ class ConversationsViewController: UIViewController, UITableViewDelegate, UITabl
                 if snapshot.exists(){
                     self?.createNewConversation(result: resultt)
                 } else {
-                   
+                    
                     self?.setUpkey(key_db:key_db)
-//                    self?.createNewConversation(result: resultt)
+                    //                    self?.createNewConversation(result: resultt)
                     let alert = UIAlertController(title: "Thông báo", message: "Đã gửi lời mời kết bạn.", preferredStyle: UIAlertController.Style.alert)
-
-                            // add an action (button)
-                            alert.addAction(UIAlertAction(title: "OK", style: UIAlertAction.Style.default, handler: nil))
-
-                            // show the alert
+                    
+                    // add an action (button)
+                    alert.addAction(UIAlertAction(title: "OK", style: UIAlertAction.Style.default, handler: nil))
+                    
+                    // show the alert
                     self!.present(alert, animated: true, completion: nil)
                 }
             })
@@ -140,7 +153,7 @@ class ConversationsViewController: UIViewController, UITableViewDelegate, UITabl
     func setUpkey(key_db: String) {
         var g = CreateShareKey.shared.generatePrimeNumber()
         var m = CreateShareKey.shared.generatePrimeNumber()
-
+        
         if (g > m) {
             let swap = g
             g = m
@@ -163,9 +176,9 @@ class ConversationsViewController: UIViewController, UITableViewDelegate, UITabl
         let email = UserDefaults.standard.value(forKey: "Email")!
         let safeEmail = DatabaseManager.shared.safeEmail(Email: email as! String)
         
-//        let value_add: [String: Any] = [
-//            "chat_with": safeEmail
-//        ]
+        //        let value_add: [String: Any] = [
+        //            "chat_with": safeEmail
+        //        ]
         
         DatabaseManager.shared.database.child(key_db).setValue(value, withCompletionBlock: { error, _  in
             guard error == nil else {
@@ -202,11 +215,11 @@ class ConversationsViewController: UIViewController, UITableViewDelegate, UITabl
             }
         })
         
-//        DatabaseManager.shared.database.child("\(ConversationsViewController.email_other)/").setValue(value_add, withCompletionBlock: { error, _  in
-//            guard error == nil else {
-//                return
-//            }
-//        })
+        //        DatabaseManager.shared.database.child("\(ConversationsViewController.email_other)/").setValue(value_add, withCompletionBlock: { error, _  in
+        //            guard error == nil else {
+        //                return
+        //            }
+        //        })
     }
     
     private func createNewConversation(result: [String: String]) {
@@ -268,7 +281,7 @@ class ConversationsViewController: UIViewController, UITableViewDelegate, UITabl
                         let sharedSecretKeyValue = CreateShareKey.shared.powermod(senderPublicKeyValue, power: receiveSecretKey, modulus: m)
                         print("trung1: \(sharedSecretKeyValue)")
                         UserDefaults.standard.set("\(sharedSecretKeyValue)", forKey: key_path)
-                        CreateShareKey.shared.initAES(sharedSecretKeyValue: "\(sharedSecretKeyValue)")
+                        //                        CreateShareKey.shared.initAES(sharedSecretKeyValue: "\(sharedSecretKeyValue)")
                         
                         //                    let value: [String: Any] = [
                         //                        "receivePublicKeyValue": senderPublicKeyValue
@@ -284,8 +297,8 @@ class ConversationsViewController: UIViewController, UITableViewDelegate, UITabl
                     }
                 })
             } else {
-//                let sharedSecretKeyValue = UserDefaults.standard.value(forKey: "sharedSecretKeyValue") as! String
-//                    CreateShareKey.shared.initAES(sharedSecretKeyValue: sharedSecretKeyValue)
+                //                let sharedSecretKeyValue = UserDefaults.standard.value(forKey: "sharedSecretKeyValue") as! String
+                //                    CreateShareKey.shared.initAES(sharedSecretKeyValue: sharedSecretKeyValue)
             }
         } else {
             if (UserDefaults.standard.value(forKey: key_path) == nil) {
@@ -307,7 +320,7 @@ class ConversationsViewController: UIViewController, UITableViewDelegate, UITabl
                     }
                 })
                 
-                DatabaseManager.shared.getDataFor(path: "\(ConversationsViewController.key_infor_path)/receivePublicKeyValue", completion: { resultt in
+                DatabaseManager.shared.getDataFor(path: "\(key_path)/receivePublicKeyValue", completion: { resultt in
                     switch resultt {
                     case .success(let data):
                         receivePublicKeyValue = data as! Int
@@ -316,14 +329,14 @@ class ConversationsViewController: UIViewController, UITableViewDelegate, UITabl
                         let sharedSecretKeyValue = CreateShareKey.shared.powermod(receivePublicKeyValue, power: Int(senderSecretKeyValue)!, modulus: m)
                         print("trung2: \(sharedSecretKeyValue)")
                         UserDefaults.standard.set("\(sharedSecretKeyValue)", forKey: key_path)
-                        CreateShareKey.shared.initAES(sharedSecretKeyValue: "\(sharedSecretKeyValue)")
+                        //                        CreateShareKey.shared.initAES(sharedSecretKeyValue: "\(sharedSecretKeyValue)")
                     case .failure(let error):
                         print("\(error)")
                     }
                 })
             } else {
-//                let sharedSecretKeyValue = UserDefaults.standard.value(forKey: "sharedSecretKeyValue") as! String
-//                    CreateShareKey.shared.initAES(sharedSecretKeyValue: sharedSecretKeyValue)
+                //                let sharedSecretKeyValue = UserDefaults.standard.value(forKey: "sharedSecretKeyValue") as! String
+                //                    CreateShareKey.shared.initAES(sharedSecretKeyValue: sharedSecretKeyValue)
             }
         }
     }
@@ -334,62 +347,62 @@ class ConversationsViewController: UIViewController, UITableViewDelegate, UITabl
         for val in users {
             let email_chat = (val["email"]! as String)
             let key_path = "key_infor_\(safeEmail)_\(email_chat)"
-        if (UserDefaults.standard.value(forKey: "sender") == nil) {
-            Database.database().reference().child("\(key_path)").observeSingleEvent(of: .value, with: { (snapshot) in
-                if snapshot.exists(){
-                    if (UserDefaults.standard.value(forKey: "sharedSecretKeyValue") == nil) {
-                        var sender: String = ""
-                        DatabaseManager.shared.getDataFor(path: "\(key_path)/sender", completion: { resultt in
-                            switch resultt {
-                            case .success(let data):
-                                sender = data as! String
-                            case .failure(let error):
-                                print("\(error)")
-                            }
-                        })
-                        self.GetKey(key_path: key_path)
-//                        let alert = UIAlertController(title: "Thông báo", message: "\(sender) đã gửi lời mời kết bạn.", preferredStyle: UIAlertController.Style.alert)
-//
-//                                // add an action (button)
-//                        alert.addAction(UIAlertAction(title: "Đồng ý", style: .default, handler: { action in
-//                            switch action.style{
-//                                case .default:
-//                                self.GetKey(key_path: key_path)
-//
-//                                case .cancel:
-//                                print("cancel")
-//
-//                                case .destructive:
-//                                print("destructive")
-//
-//                            }
-//                        }))
-//
-//                                // show the alert
-//                        self.present(alert, animated: true, completion: nil)
-                    } else {
-                        self.startListeningForConversation()
+            if (UserDefaults.standard.value(forKey: "sender") == nil) {
+                Database.database().reference().child("\(key_path)").observeSingleEvent(of: .value, with: { (snapshot) in
+                    if snapshot.exists(){
+                        if (UserDefaults.standard.value(forKey: key_path) == nil) {
+                            var sender = email_chat
+                            DatabaseManager.shared.getDataFor(path: "\(key_path)/sender", completion: { resultt in
+                                switch resultt {
+                                case .success(let data):
+                                    sender = data as! String
+                                case .failure(let error):
+                                    print("\(error)")
+                                }
+                            })
+                            self.GetKey(key_path: key_path)
+                            //                        let alert = UIAlertController(title: "Thông báo", message: "\(sender) đã gửi lời mời kết bạn.", preferredStyle: UIAlertController.Style.alert)
+                            //
+                            //                                // add an action (button)
+                            //                        alert.addAction(UIAlertAction(title: "Đồng ý", style: .default, handler: { action in
+                            //                            switch action.style{
+                            //                                case .default:
+                            //                                self.GetKey(key_path: key_path)
+                            //
+                            //                                case .cancel:
+                            //                                print("cancel")
+                            //
+                            //                                case .destructive:
+                            //                                print("destructive")
+                            //
+                            //                            }
+                            //                        }))
+                            //
+                            //                                // show the alert
+                            //                        self.present(alert, animated: true, completion: nil)
+                        } else {
+                            self.startListeningForConversation()
+                        }
+                        
+                    }else{
+                        print("false room doesn't exist")
                     }
-                    
-                }else{
-                    print("false room doesn't exist")
-                }
-            })
-        } else {
-            Database.database().reference().child("\(ConversationsViewController.key_infor_path)/receivePublicKeyValue").observeSingleEvent(of: .value, with: { (snapshot) in
-                if snapshot.exists(){
-                    if (UserDefaults.standard.value(forKey: "sharedSecretKeyValue") == nil) {
-                        self.GetKey(key_path: key_path)
-                    } else {
-//                        let sharedSecretKeyValue = UserDefaults.standard.value(forKey: "sharedSecretKeyValue") as! String
-//                        CreateShareKey.shared.initAES(sharedSecretKeyValue: sharedSecretKeyValue)
-                        self.startListeningForConversation()
+                })
+            } else {
+                Database.database().reference().child("\(key_path)/receivePublicKeyValue").observeSingleEvent(of: .value, with: { (snapshot) in
+                    if snapshot.exists(){
+                        if (UserDefaults.standard.value(forKey: key_path) == nil) {
+                            self.GetKey(key_path: key_path)
+                        } else {
+                            //                        let sharedSecretKeyValue = UserDefaults.standard.value(forKey: "sharedSecretKeyValue") as! String
+                            //                        CreateShareKey.shared.initAES(sharedSecretKeyValue: sharedSecretKeyValue)
+                            self.startListeningForConversation()
+                        }
+                    }else{
+                        print("false room doesn't exist")
                     }
-                }else{
-                    print("false room doesn't exist")
-                }
-            })
-        }
+                })
+            }
         }
     }
     
@@ -399,6 +412,18 @@ class ConversationsViewController: UIViewController, UITableViewDelegate, UITabl
             let login = LoginViewController()
             self.navigationController?.pushViewController(login, animated: true)
         } else {
+//            let email = UserDefaults.standard.value(forKey: "Email")!
+//            let safeEmail = DatabaseManager.shared.safeEmail(Email: email as! String)
+//            let path = "\(safeEmail)/conversations/key_infor"
+//            DatabaseManager.shared.getDataFor(path: path, completion: { [self] resultt in
+//                switch resultt {
+//                case .success(let data):
+//                    self.key_path = data as! String
+//                case .failure(let error):
+//                    print("\(error)")
+//                }
+//            })
+            startListeningForConversation()
             DatabaseManager.shared.getAllChatWith(completion: { [weak self] result in
                 switch result {
                 case .success(let usersCollection):
@@ -409,8 +434,8 @@ class ConversationsViewController: UIViewController, UITableViewDelegate, UITabl
                 }
             })
         }
-//            receivePublicKeyValue
-           
+        //            receivePublicKeyValue
+        
         //        if FirebaseAuth.Auth.auth().currentUser == nil {
         //            let login = LoginViewController()
         //            self.navigationController?.pushViewController(login, animated: true)
@@ -439,18 +464,70 @@ class ConversationsViewController: UIViewController, UITableViewDelegate, UITabl
             }
         })
         var lastMessage = ""
-        let senderSecretKeyValue = UserDefaults.standard.value(forKey: "sharedSecretKeyValue") as! String
-        lastMessage = CreateShareKey.shared.decrypt(cipherText: model.lastestMessage.text)
-        cell.lastest_message.text = lastMessage
-        cell.nameUser.text = model.name
+//        let email = UserDefaults.standard.value(forKey: "Email")!
+//        let safeEmail = DatabaseManager.shared.safeEmail(Email: email as! String)
+//        let email_other = model.otherUserEmail
+//        let key_db = "key_infor_\(safeEmail)_\(email_other)"
+        
+//        loading = NVActivityIndicatorView.init(frame: CGRect(x: 10, y: 5, width: 45, height: 45), type: .ballSpinFadeLoader, color: .blue, padding: 0)
+//        loading.color = .darkGray
+//        loading.startAnimating()
+//        let alert = UIAlertController(title: nil, message: "Đang xử lý...", preferredStyle: .alert)
+//        alert.view.addSubview(loading)
+//        present(alert, animated: true, completion: nil)
+        
+        Database.database().reference().child("\(model.key_path)").observeSingleEvent(of: .value, with: { [self] (snapshot) in
+            if snapshot.exists(){
+                DatabaseManager.shared.getDataFor(path: "\(model.key_path)/iv", completion: { resultt in
+                    switch resultt {
+                    case .success(let data):
+                        let ivString = data as! String
+                        UserDefaults.standard.set(ivString, forKey: "\(model.key_path)_iv")
+                        DispatchQueue.main.async { [self] in
+                            if (UserDefaults.standard.value(forKey: model.key_path) != nil) {
+                                let sharedSecretKeyValue = UserDefaults.standard.value(forKey: model.key_path) as! String
+                                let aes = CreateShareKey.shared.initAES(sharedSecretKeyValue: sharedSecretKeyValue, key_path: model.key_path, ivString: ivString)
+                                lastMessage = CreateShareKey.shared.decrypt(cipherText: model.lastestMessage.text, aes: aes)
+                                cell.lastest_message.text = lastMessage
+                                cell.nameUser.text = model.name
+//                                loading.stopAnimating()
+//                                alert.dismiss(animated: true, completion: nil)
+//                                print("oi doi oi")
+                            } else {
+                                GetKey(key_path: model.key_path)
+                                let sharedSecretKeyValue = UserDefaults.standard.value(forKey: model.key_path) as! String
+                                let aes = CreateShareKey.shared.initAES(sharedSecretKeyValue: sharedSecretKeyValue, key_path: model.key_path, ivString: ivString)
+                                lastMessage = CreateShareKey.shared.decrypt(cipherText: model.lastestMessage.text, aes: aes)
+                                cell.lastest_message.text = lastMessage
+                                cell.nameUser.text = model.name
+//                                loading.stopAnimating()
+//                                alert.dismiss(animated: true, completion: nil)
+                            }
+                        }
+                    case .failure(let error):
+                        print("\(error)")
+//                        loading.stopAnimating()
+//                        alert.dismiss(animated: true, completion: nil)
+                    }
+                })
+            }else{
+                print("false room doesn't exist")
+            }
+        })
         
         return cell
     }
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        print("trunggg")
         let model = conversations[indexPath.row]
         tableViewChat.deselectRow(at: indexPath, animated: true)
+//        let email = UserDefaults.standard.value(forKey: "Email")!
+//        let safeEmail = DatabaseManager.shared.safeEmail(Email: email as! String)
+//        let email_other = model.otherUserEmail
+//        let key_db = "key_infor_\(email_other)_\(safeEmail)"
+        let ivString = UserDefaults.standard.object(forKey: "\(model.key_path)_iv") as! String
+        let sharedSecretKeyValue = UserDefaults.standard.value(forKey: model.key_path) as! String
+        CreateShareKey.aes = CreateShareKey.shared.initAES(sharedSecretKeyValue: sharedSecretKeyValue, key_path: model.key_path, ivString: ivString)
         let vc = ChatViewController(with: model.otherUserEmail, id: model.id)
         vc.title = model.name
         vc.navigationItem.largeTitleDisplayMode = .never

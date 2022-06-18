@@ -7,6 +7,7 @@
 
 import UIKit
 import JGProgressHUD
+import FirebaseDatabase
 
 class NewConversationViewController: UIViewController {
 
@@ -80,8 +81,42 @@ extension NewConversationViewController: UITableViewDelegate, UITableViewDataSou
         tableView.deselectRow(at: indexPath, animated: true)
         let targetUserData = results[indexPath.row]
         print("trunggggg1")
-        dismiss(animated: true, completion: { [weak self] in
-            self?.completion?(targetUserData)
+        let email = UserDefaults.standard.value(forKey: "Email")!
+        let safeEmail = DatabaseManager.shared.safeEmail(Email: email as! String)
+        let email_other = targetUserData["email"]
+        let key_db = "key_infor_\(email_other!)_\(safeEmail)"
+        
+        Database.database().reference().child("\(key_db)").observeSingleEvent(of: .value, with: { (snapshot) in
+            if snapshot.exists(){
+                ConversationsViewController.init().GetKey(key_path: key_db)
+                DatabaseManager.shared.getDataFor(path: "\(key_db)/iv", completion: { resultt in
+                    switch resultt {
+                    case .success(let data):
+                        let ivString = data as! String
+                        UserDefaults.standard.set(ivString, forKey: "\(key_db)_iv")
+                        DispatchQueue.main.async {
+                            if (UserDefaults.standard.value(forKey: key_db) != nil) {
+                                let sharedSecretKeyValue = UserDefaults.standard.value(forKey: key_db) as! String
+                                CreateShareKey.aes = CreateShareKey.shared.initAES(sharedSecretKeyValue: sharedSecretKeyValue, key_path: key_db, ivString: ivString)
+                            }
+//                            } else {
+//                                ConversationsViewController.init().GetKey(key_path: key_db)
+//                                let sharedSecretKeyValue = UserDefaults.standard.value(forKey: key_db) as! String
+//                                CreateShareKey.aes = CreateShareKey.shared.initAES(sharedSecretKeyValue: sharedSecretKeyValue, key_path: key_db, ivString: ivString)
+//                            }
+                            self.dismiss(animated: true, completion: { [weak self] in
+                                self?.completion?(targetUserData)
+                            })
+                        }
+                    case .failure(let error):
+                        print("\(error)")
+                    }
+                })
+            } else {
+                self.dismiss(animated: true, completion: { [weak self] in
+                    self?.completion?(targetUserData)
+                })
+            }
         })
     }
 }

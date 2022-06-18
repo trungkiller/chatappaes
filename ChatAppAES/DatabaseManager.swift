@@ -107,6 +107,16 @@ extension DatabaseManager {
         })
     }
     
+    public func getKeyPath(path: String, completion: @escaping (Result<Any, Error>) -> Void) {
+        database.child("\(path)").observeSingleEvent(of: .value, with: { snapshot in
+            guard let value = snapshot.value else {
+                completion(.failure(DatabaseError.failedToFetch))
+                return
+            }
+            completion(.success(value))
+        })
+    }
+    
     public func getKeyForMessage(path: String, completion: @escaping (Result<Any, Error>) -> Void) -> String {
         var message = ""
         database.child("\(path)").observeSingleEvent(of: .value, with: { snapshot in
@@ -168,11 +178,13 @@ extension DatabaseManager {
             }
             
 //            message = try! message.aesEncrypt(key: key)
-            message = CreateShareKey.shared.encrypt(mess: message)
+            message = CreateShareKey.shared.encrypt(mess: message, aes: CreateShareKey.aes!)
             
             let conversationId = "conversation_\(firstMessage.messageId)"
+            let key_infor = "key_infor_\(otherEmail)_\(safeEmail)"
             
             let newConversationData: [String: Any] = [
+                "key_infor": key_infor,
                 "id": conversationId,
                 "other_user_email": otherEmail,
                 "name": name,
@@ -184,6 +196,7 @@ extension DatabaseManager {
             ]
             
             let recipient_newConversationData: [String: Any] = [
+                "key_infor": key_infor,
                 "id": conversationId,
                 "other_user_email": safeEmail,
                 "name": userName,
@@ -284,7 +297,7 @@ extension DatabaseManager {
         var safeEmail = myEmail.replacingOccurrences(of: ".", with: "-")
         safeEmail = safeEmail.replacingOccurrences(of: "@", with: "-")
 //        message = try! message.aesEncrypt(key: key)
-        message = CreateShareKey.shared.encrypt(mess: message)
+        message = CreateShareKey.shared.encrypt(mess: message, aes: CreateShareKey.aes!)
         
         let collectionMessage: [String: Any] = [
             "id": firstMessage.messageId,
@@ -299,9 +312,7 @@ extension DatabaseManager {
         
         
         let value: [String: Any] = [
-            "messages": [ collectionMessage ],
-            "key": key,
-            "add_friend": ""
+            "messages": [ collectionMessage ]
         ]
         
         database.child("\(conversationID)").setValue(value, withCompletionBlock: { error, _  in
@@ -328,11 +339,12 @@ extension DatabaseManager {
                       let lastestMessage = dictionary["lastest_message"] as? [String: Any],
                       let date = lastestMessage["date"] as? String,
                       let message = lastestMessage["message"] as? String,
-                      let isRead = lastestMessage["is_read"] as? Bool else {
+                      let isRead = lastestMessage["is_read"] as? Bool,
+                      let key_path = dictionary["key_infor"] as? String else {
                           return nil
                       }
                 let latestMessageObject = LastestMessage(date: date, text: message, isRead: isRead)
-                return Conversation(id: conversationId, name: name, otherUserEmail: otherUserEmail, lastestMessage: latestMessageObject)
+                return Conversation(id: conversationId, name: name, otherUserEmail: otherUserEmail, lastestMessage: latestMessageObject, key_path: key_path)
             })
             
             completion(.success(conversations))
@@ -362,7 +374,7 @@ extension DatabaseManager {
                 //                semaphote.wait()
                 //                print("return value")
                 //                semaphote.wait()
-                let contentDecryt = CreateShareKey.shared.decrypt(cipherText: content)
+                let contentDecryt = CreateShareKey.shared.decrypt(cipherText: content, aes: CreateShareKey.aes!)
 //                        completion(.success(messages))
                 return Message(sender: sender, messageId: messageID, sentDate: date, kind: .text(contentDecryt))
             })
@@ -412,7 +424,7 @@ extension DatabaseManager {
 //            let sharedSecretKeyValue = UserDefaults.standard.value(forKey: "sharedSecretKeyValue") as! String
 //            CreateShareKey.shared.initAES(sharedSecretKeyValue: sharedSecretKeyValue)
 //
-            let messageString = CreateShareKey.shared.encrypt(mess: message)
+            let messageString = CreateShareKey.shared.encrypt(mess: message, aes: CreateShareKey.aes!)
             
 //            let keyAES = UserDefaults.standard.string(forKey: "keyaes")
 //                        message = try! message.aesEncrypt(key: keyAES!)

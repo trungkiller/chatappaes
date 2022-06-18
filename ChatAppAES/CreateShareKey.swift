@@ -12,16 +12,18 @@ import FirebaseDatabase
 
 var MAX_RANDOM_NUMBER = 2147483648
 var MAX_PRIME_NUMBER = 2147483648
-var aes: AES? = nil
+
 
 final class CreateShareKey {
+    static var aes: AES? = nil
     static let shared = CreateShareKey()
-    func initAES(sharedSecretKeyValue: String) {
-            let cryptoDHKey = String(sharedSecretKeyValue)
-            
-            let password: [UInt8] = Array(cryptoDHKey.utf8)
-            let salt: [UInt8] = Array("at140446".utf8)
-            
+    func initAES(sharedSecretKeyValue: String, key_path: String, ivString: String) -> AES{
+        let cryptoDHKey = String(sharedSecretKeyValue)
+        
+        let password: [UInt8] = Array(cryptoDHKey.utf8)
+        let salt: [UInt8] = Array("at140446".utf8)
+        let key_aes = UserDefaults.standard.object(forKey: "key_aes_\(key_path)")
+        if (key_aes == nil) {
             let key = try! PKCS5.PBKDF2(
                 password: password,
                 salt: salt,
@@ -29,45 +31,39 @@ final class CreateShareKey {
                 keyLength: 32, /* AES-256 */
                 variant: .sha256
             ).calculate()
+            UserDefaults.standard.set(key, forKey: "key_aes_\(key_path)")
             var iv: Array<UInt8> = []
-            if (UserDefaults.standard.value(forKey: "iv") != nil) {
-                iv = UserDefaults.standard.value(forKey: "iv") as! Array<UInt8>
-                aes = try! AES(key: key, blockMode: CBC(iv: iv), padding: .pkcs7)
-            } else {
-                let key_path = ConversationsViewController.key_infor_path
-                Database.database().reference().child("\(key_path)").observeSingleEvent(of: .value, with: { (snapshot) in
-                    if snapshot.exists(){
-                        DatabaseManager.shared.getDataFor(path: "\(key_path)/iv", completion: { resultt in
-                            switch resultt {
-                            case .success(let data):
-                                let ivString = data as! String
-                                let dataIv = Data(base64Encoded: ivString, options: .ignoreUnknownCharacters)
-                                iv = [UInt8](dataIv! as Data)
-                                UserDefaults.standard.set(iv, forKey: "iv")
-                                DispatchQueue.main.async {
-                                    aes = try! AES(key: key, blockMode: CBC(iv: iv), padding: .pkcs7)
-                                }
-                            case .failure(let error):
-                                print("\(error)")
-                            }
-                        })
-                    }else{
-                        print("false room doesn't exist")
-                    }
-                })
-            }
+            let dataIv = Data(base64Encoded: ivString, options: .ignoreUnknownCharacters)
+            iv = [UInt8](dataIv! as Data)
+            let aesElement = try! AES(key: key, blockMode: CBC(iv: iv), padding: .pkcs7)
+            return aesElement
+        } else {
+            let key = key_aes as! Array<UInt8>
+            var iv: Array<UInt8> = []
+            let dataIv = Data(base64Encoded: ivString, options: .ignoreUnknownCharacters)
+            iv = [UInt8](dataIv! as Data)
+            let aesElement = try! AES(key: key, blockMode: CBC(iv: iv), padding: .pkcs7)
+            return aesElement
+        }
+        //            if (UserDefaults.standard.value(forKey: "iv") != nil) {
+        //                iv = UserDefaults.standard.value(forKey: "iv") as! Array<UInt8>
+        //                aes = try! AES(key: key, blockMode: CBC(iv: iv), padding: .pkcs7)
+        //            } else {
+        //                let key_path = ConversationsViewController.key_infor_path
+        
+        //            }
     }
     
-    func encrypt(mess: String) -> String {
+    func encrypt(mess: String, aes: AES) -> String {
         let inputData = Data(mess.utf8)
-        let encryptBytes = try! aes?.encrypt(inputData.bytes)
-        return (encryptBytes?.toBase64())!
+        let encryptBytes = try! aes.encrypt(inputData.bytes)
+        return (encryptBytes.toBase64())
     }
     
-    func decrypt(cipherText: String) -> String {
-        let decrypted = try! aes?.decrypt(Array(base64: cipherText))
-
-        let result = String(data: Data(decrypted!), encoding: .utf8) ?? ""
+    func decrypt(cipherText: String, aes: AES) -> String {
+        let decrypted = try! aes.decrypt(Array(base64: cipherText))
+        
+        let result = String(data: Data(decrypted), encoding: .utf8) ?? ""
         return result
     }
     
@@ -83,7 +79,7 @@ final class CreateShareKey {
     func CreateExchangeKey(receiverPublicKeyValue: String) -> Int {
         var g = CreateShareKey.shared.generatePrimeNumber()
         var m = CreateShareKey.shared.generatePrimeNumber()
-
+        
         if (g > m) {
             let swap = g
             g = m
@@ -91,7 +87,7 @@ final class CreateShareKey {
         }
         
         let senderSecretKeyValue = CreateShareKey.shared.generateRandomNumber() % MAX_RANDOM_NUMBER
-//        let senderPublicKeyValue = CreateShareKey.shared.powermod(g, power: senderSecretKeyValue, modulus: m)
+        //        let senderPublicKeyValue = CreateShareKey.shared.powermod(g, power: senderSecretKeyValue, modulus: m)
         
         let sharedSecretKeyValue = CreateShareKey.shared.powermod(Int(receiverPublicKeyValue)!, power: senderSecretKeyValue, modulus: m)
         
@@ -135,7 +131,7 @@ final class CreateShareKey {
     func millerRabinPass(_ a: Int, modulus n: Int) -> Bool {
         var d = n - 1
         let s = numTrailingZeros(d)
-
+        
         d >>= s
         var aPow = powermod(a, power: d, modulus: n)
         if aPow == 1 {
@@ -166,14 +162,14 @@ final class CreateShareKey {
     }
     
     public func generatePrimeNumber() -> Int {
-
+        
         var result = generateRandomNumber() % MAX_PRIME_NUMBER
-
+        
         //ensure it is an odd number
         if (result & 1) == 0 {
             result += 1
         }
-
+        
         // keep incrementally checking odd numbers until we find
         // an integer of high probablity of primality
         while true {
@@ -193,7 +189,7 @@ final class CreateShareKey {
         let g = BigInt(base)
         let privateKey = BigInt(power)
         let p = BigInt(modulus )
-
+        
         // pow mod formula to get key
         let key = g!.power(privateKey!, modulus: p!)
         
@@ -237,7 +233,7 @@ struct DHKey {
     
     var privateKey: String?
     var publicKey: String?
-
+    
     init(privateKey: String, publicKey: String) {
         
         self.privateKey = privateKey
