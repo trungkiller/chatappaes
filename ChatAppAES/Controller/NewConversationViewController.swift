@@ -8,19 +8,21 @@
 import UIKit
 import JGProgressHUD
 import FirebaseDatabase
+import NVActivityIndicatorView
 
 class NewConversationViewController: UIViewController {
-
+    
     public var completion: (([String: String]) -> (Void))?
     
     private let spinner = JGProgressHUD(style: .dark)
+    var loading: NVActivityIndicatorView!
     
     private var users = [[String: String]]()
     private var results = [[String: String]]()
     private var hasFetched = false
     
     private let searchBar: UISearchBar = {
-       let searchBar = UISearchBar()
+        let searchBar = UISearchBar()
         searchBar.placeholder = "Tim nguoi dung..."
         return searchBar
     }()
@@ -94,17 +96,18 @@ extension NewConversationViewController: UITableViewDelegate, UITableViewDataSou
                     case .success(let data):
                         let ivString = data as! String
                         UserDefaults.standard.set(ivString, forKey: "\(key_db)_iv")
-                        DispatchQueue.main.async {
+                        DispatchQueue.main.async { [weak self] in
                             if (UserDefaults.standard.value(forKey: key_db) != nil) {
                                 let sharedSecretKeyValue = UserDefaults.standard.value(forKey: key_db) as! String
                                 CreateShareKey.aes = CreateShareKey.shared.initAES(sharedSecretKeyValue: sharedSecretKeyValue, key_path: key_db, ivString: ivString)
                             }
-//                            } else {
-//                                ConversationsViewController.init().GetKey(key_path: key_db)
-//                                let sharedSecretKeyValue = UserDefaults.standard.value(forKey: key_db) as! String
-//                                CreateShareKey.aes = CreateShareKey.shared.initAES(sharedSecretKeyValue: sharedSecretKeyValue, key_path: key_db, ivString: ivString)
-//                            }
-                            self.dismiss(animated: true, completion: { [weak self] in
+                            //                            } else {
+                            //                                ConversationsViewController.init().GetKey(key_path: key_db)
+                            //                                let sharedSecretKeyValue = UserDefaults.standard.value(forKey: key_db) as! String
+                            //                                CreateShareKey.aes = CreateShareKey.shared.initAES(sharedSecretKeyValue: sharedSecretKeyValue, key_path: key_db, ivString: ivString)
+                            //                            }
+                            
+                            self!.dismiss(animated: true, completion: { [weak self] in
                                 self?.completion?(targetUserData)
                             })
                         }

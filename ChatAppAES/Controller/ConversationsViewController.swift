@@ -87,6 +87,8 @@ class ConversationsViewController: UIViewController, UITableViewDelegate, UITabl
             }
             DispatchQueue.main.async {
                 self?.tableViewChat.reloadData()
+                self?.tableViewChat.reloadInputViews()
+                self?.tableViewChat.separatorStyle = .none
             }
         })
         
@@ -123,25 +125,26 @@ class ConversationsViewController: UIViewController, UITableViewDelegate, UITabl
         let vc = NewConversationViewController()
         vc.completion = { [weak self] resultt in
             let email_other = resultt["email"]!
+            let name = UserDefaults.standard.value(forKey: "name")! as! String
             let email = UserDefaults.standard.value(forKey: "Email")!
             let safeEmail = DatabaseManager.shared.safeEmail(Email: email as! String)
             let key_db = "key_infor_\(email_other)_\(safeEmail)"
             ConversationsViewController.key_infor_path = key_db
             ConversationsViewController.email_other = email_other
-            Database.database().reference().child(key_db).observeSingleEvent(of: .value, with: { (snapshot) in
+            Database.database().reference().child(key_db).observeSingleEvent(of: .value, with: { [weak self] (snapshot) in
                 if snapshot.exists(){
                     self?.createNewConversation(result: resultt)
                 } else {
-                    
-                    self?.setUpkey(key_db:key_db)
+//                    alert.dismiss(animated: true, completion: nil)
                     //                    self?.createNewConversation(result: resultt)
-                    let alert = UIAlertController(title: "Thông báo", message: "Đã gửi lời mời kết bạn.", preferredStyle: UIAlertController.Style.alert)
+                    self?.setUpkey(key_db:key_db, name: name)
+                    let alertNoti = UIAlertController(title: "Thông báo", message: "Đã gửi lời mời kết bạn.", preferredStyle: UIAlertController.Style.alert)
                     
                     // add an action (button)
-                    alert.addAction(UIAlertAction(title: "OK", style: UIAlertAction.Style.default, handler: nil))
+                    alertNoti.addAction(UIAlertAction(title: "OK", style: UIAlertAction.Style.default, handler: nil))
                     
                     // show the alert
-                    self!.present(alert, animated: true, completion: nil)
+                    self!.present(alertNoti, animated: true, completion: nil)
                 }
             })
             
@@ -150,7 +153,7 @@ class ConversationsViewController: UIViewController, UITableViewDelegate, UITabl
         present(navVc, animated: true)
     }
     
-    func setUpkey(key_db: String) {
+    func setUpkey(key_db: String, name: String) {
         var g = CreateShareKey.shared.generatePrimeNumber()
         var m = CreateShareKey.shared.generatePrimeNumber()
         
@@ -190,7 +193,8 @@ class ConversationsViewController: UIViewController, UITableViewDelegate, UITabl
         DatabaseManager.shared.database.child("\(ConversationsViewController.email_other)/chat_with").observeSingleEvent(of: .value, with: {snapshot in
             if var userCollection = snapshot.value as? [[String: String]] {
                 let newElement = [
-                    "email": safeEmail
+                    "email": safeEmail,
+                    "name": name
                 ]
                 
                 userCollection.append(newElement)
@@ -203,7 +207,8 @@ class ConversationsViewController: UIViewController, UITableViewDelegate, UITabl
             } else {
                 let newCollection: [[String: String]] = [
                     [
-                        "email": safeEmail
+                        "email": safeEmail,
+                        "name": name
                     ]
                 ]
                 
@@ -351,7 +356,6 @@ class ConversationsViewController: UIViewController, UITableViewDelegate, UITabl
                 Database.database().reference().child("\(key_path)").observeSingleEvent(of: .value, with: { (snapshot) in
                     if snapshot.exists(){
                         if (UserDefaults.standard.value(forKey: key_path) == nil) {
-                            var sender = email_chat
                             DatabaseManager.shared.getDataFor(path: "\(key_path)/sender", completion: { resultt in
                                 switch resultt {
                                 case .success(let data):
@@ -423,12 +427,44 @@ class ConversationsViewController: UIViewController, UITableViewDelegate, UITabl
 //                    print("\(error)")
 //                }
 //            })
+            
             startListeningForConversation()
             DatabaseManager.shared.getAllChatWith(completion: { [weak self] result in
                 switch result {
                 case .success(let usersCollection):
                     users = usersCollection
-                    self!.CompletionKey(users: users)
+                    let email = UserDefaults.standard.object(forKey: "Email") as! String
+                    let safeEmail = DatabaseManager.shared.safeEmail(Email: email)
+                    for val in users {
+                        let email_chat = (val["email"]! as String)
+                        let name = (val["name"]! as String)
+                        let key_path = "key_infor_\(safeEmail)_\(email_chat)"
+                        if (UserDefaults.standard.value(forKey: "sender") == nil) {
+                            Database.database().reference().child("\(key_path)/receivePublicKeyValue").observeSingleEvent(of: .value, with: { (snapshot) in
+                                if snapshot.exists(){
+                                } else {
+                                    let alert = UIAlertController(title: "Thông báo", message: "\(name) đã gửi lời mời kết bạn.", preferredStyle: UIAlertController.Style.alert)
+                                    
+                                    // add an action (button)
+                                    alert.addAction(UIAlertAction(title: "Đồng ý", style: .default, handler: { action in
+                                        switch action.style{
+                                        case .default:
+                                            self!.CompletionKey(users: users)
+                                        case .cancel:
+                                            print("cancel")
+                                            
+                                        case .destructive:
+                                            print("destructive")
+                                            
+                                        }
+                                    }))
+                                    
+                                    // show the alert
+                                    self!.present(alert, animated: true, completion: nil)
+                                }
+                            })
+                        }
+                    }
                 case .failure(let error):
                     print(error)
                 }
@@ -450,8 +486,16 @@ class ConversationsViewController: UIViewController, UITableViewDelegate, UITabl
         return conversations.count
     }
     
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        return 100;
+    }
+    
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: cellTable) as! ConversationTableViewCell
+        cell.avatar.frame = CGRect(x: 0, y: 0, width: 60, height: 60)
+        cell.avatar.translatesAutoresizingMaskIntoConstraints = false
+        cell.avatar.contentMode = .scaleAspectFill
+        cell.avatar.layer.cornerRadius = 30
         let model = conversations[indexPath.row]
         let pathImg = "images/\(model.otherUserEmail)_avatar.png"
         StorageManager.shared.downloadURL(for: pathImg, completion: { [weak self] resultt in
@@ -546,6 +590,9 @@ class ConversationsViewController: UIViewController, UITableViewDelegate, UITabl
             DispatchQueue.main.async() {
                 let image = UIImage(data: data)
                 imageView.image = image
+                imageView.frame = CGRect(x: 0, y: 0, width: 60, height: 60)
+                imageView.layer.cornerRadius = imageView.frame.height/2
+                imageView.clipsToBounds = true
             }
         }).resume()
     }
