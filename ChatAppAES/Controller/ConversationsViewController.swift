@@ -356,34 +356,7 @@ class ConversationsViewController: UIViewController, UITableViewDelegate, UITabl
                 Database.database().reference().child("\(key_path)").observeSingleEvent(of: .value, with: { (snapshot) in
                     if snapshot.exists(){
                         if (UserDefaults.standard.value(forKey: key_path) == nil) {
-                            DatabaseManager.shared.getDataFor(path: "\(key_path)/sender", completion: { resultt in
-                                switch resultt {
-                                case .success(let data):
-                                    sender = data as! String
-                                case .failure(let error):
-                                    print("\(error)")
-                                }
-                            })
                             self.GetKey(key_path: key_path)
-                            //                        let alert = UIAlertController(title: "Thông báo", message: "\(sender) đã gửi lời mời kết bạn.", preferredStyle: UIAlertController.Style.alert)
-                            //
-                            //                                // add an action (button)
-                            //                        alert.addAction(UIAlertAction(title: "Đồng ý", style: .default, handler: { action in
-                            //                            switch action.style{
-                            //                                case .default:
-                            //                                self.GetKey(key_path: key_path)
-                            //
-                            //                                case .cancel:
-                            //                                print("cancel")
-                            //
-                            //                                case .destructive:
-                            //                                print("destructive")
-                            //
-                            //                            }
-                            //                        }))
-                            //
-                            //                                // show the alert
-                            //                        self.present(alert, animated: true, completion: nil)
                         } else {
                             self.startListeningForConversation()
                         }
